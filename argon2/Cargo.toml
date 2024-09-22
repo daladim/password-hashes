@@ -29,6 +29,7 @@ cpufeatures = "0.2.12"
 [dev-dependencies]
 hex-literal = "0.4"
 password-hash = { version = "0.5", features = ["rand_core"] }
+memory-stats = "1.2"
 
 [features]
 default = ["alloc", "password-hash", "rand"]
