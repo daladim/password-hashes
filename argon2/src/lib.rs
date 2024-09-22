@@ -1,4 +1,3 @@
-#![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
 #![doc(
@@ -189,6 +188,21 @@ impl fmt::Debug for Argon2<'_> {
     }
 }
 
+#[cfg(feature = "alloc")]
+use std::sync::LazyLock;
+use std::sync::Mutex;
+use std::ops::DerefMut;
+
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+
+#[cfg(feature = "alloc")]
+static MEM_BLOCK: LazyLock<Mutex<Vec<Block>>> = LazyLock::new(|| {
+    let default_params = Params::default();
+    // println!("Allocating {} blocks", default_params.block_count());
+    Mutex::new(vec![Block::default(); 2 * default_params.block_count()])
+});
+
 impl<'key> Argon2<'key> {
     /// Create a new Argon2 context.
     pub fn new(algorithm: Algorithm, version: Version, params: Params) -> Self {
@@ -227,8 +241,11 @@ impl<'key> Argon2<'key> {
     #[cfg(feature = "alloc")]
     #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
     pub fn hash_password_into(&self, pwd: &[u8], salt: &[u8], out: &mut [u8]) -> Result<()> {
-        let mut blocks = vec![Block::default(); self.params.block_count()];
-        self.hash_password_into_with_memory(pwd, salt, out, &mut blocks)
+        let blocks = &mut MEM_BLOCK.lock().unwrap();
+        if self.params.block_count() > blocks.len() {
+            return Err(Error::AlgorithmInvalid);
+        }
+        self.hash_password_into_with_memory(pwd, salt, out, blocks.deref_mut())
     }
 
     /// Hash a password and associated parameters into the provided output buffer.
